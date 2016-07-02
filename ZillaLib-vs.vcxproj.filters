@@ -161,6 +161,9 @@
     <ClCompile Include="Source\ZL_Display.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="Source\ZL_Display3D.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
     <ClCompile Include="Source\ZL_File.cpp">
       <Filter>Source</Filter>
     </ClCompile>
@@ -250,6 +253,9 @@
     <ClInclude Include="Include\ZL_Display.h">
       <Filter>Include</Filter>
     </ClInclude>
+    <ClInclude Include="Include\ZL_Display3D.h">
+      <Filter>Include</Filter>
+    </ClInclude>
     <ClInclude Include="Include\ZL_File.h">
       <Filter>Include</Filter>
     </ClInclude>
@@ -260,6 +266,9 @@
       <Filter>Include</Filter>
     </ClInclude>
     <ClInclude Include="Include\ZL_Math.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\ZL_Math3D.h">
       <Filter>Include</Filter>
     </ClInclude>
     <ClInclude Include="Include\ZL_Network.h">

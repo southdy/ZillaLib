@@ -257,6 +257,7 @@
     <ClCompile Include="Source\stb\stb_truetype.cpp" />
     <ClCompile Include="Source\ZL_Application.cpp" />
     <ClCompile Include="Source\ZL_Display.cpp" />
+    <ClCompile Include="Source\ZL_Display3D.cpp" />
     <ClCompile Include="Source\ZL_File.cpp" />
     <ClCompile Include="Source\ZL_File_ZIP.cpp" />
     <ClCompile Include="Source\ZL_Font.cpp" />
@@ -325,11 +326,13 @@
     <ClInclude Include="Source\libtess2\tesselator.h" />
     <ClInclude Include="Include\ZL_Application.h" />
     <ClInclude Include="Include\ZL_Display.h" />
+    <ClInclude Include="Include\ZL_Display3D.h" />
     <ClInclude Include="Include\ZL_Events.h" />
     <ClInclude Include="Include\ZL_File.h" />
     <ClInclude Include="Include\ZL_Font.h" />
     <ClInclude Include="Include\ZL_Input.h" />
     <ClInclude Include="Include\ZL_Math.h" />
+    <ClInclude Include="Include\ZL_Math3D.h" />
     <ClInclude Include="Include\ZL_Network.h" />
     <ClInclude Include="Include\ZL_Particles.h" />
     <ClInclude Include="Include\ZL_Scene.h" />

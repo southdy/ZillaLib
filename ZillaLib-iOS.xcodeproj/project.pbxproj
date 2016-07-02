@@ -12,6 +12,7 @@
 		0497E281160DBBC20099A6A4 /* stb_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0497E27F160DBBC20099A6A4 /* stb_image.cpp */; };
 		0497E282160DBBC20099A6A4 /* stb_vorbis.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0497E280160DBBC20099A6A4 /* stb_vorbis.cpp */; };
 		049A5096168DDC2400CB2996 /* ZL_PlatformGLSL.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 049A5095168DDC2400CB2996 /* ZL_PlatformGLSL.cpp */; };
+		9455D9471D04638000B4571A /* ZL_Display3D.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9455D9461D04638000B4571A /* ZL_Display3D.cpp */; settings = {ASSET_TAGS = (); }; };
 		949488E81BD8085900486A3F /* ZL_File_ZIP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 949488E71BD8085900486A3F /* ZL_File_ZIP.cpp */; settings = {ASSET_TAGS = (); }; };
 		A98F8F2711C0BB350023655C /* ZL_Application.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A98F8E4211C0BB350023655C /* ZL_Application.cpp */; };
 		A98F8F2811C0BB350023655C /* ZL_Display.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A98F8E4311C0BB350023655C /* ZL_Display.cpp */; };
@@ -35,7 +36,6 @@
 		A98F92BC11C0D26A0023655C /* peer.c in Sources */ = {isa = PBXBuildFile; fileRef = A98F92AB11C0D26A0023655C /* peer.c */; };
 		A98F92BD11C0D26A0023655C /* protocol.c in Sources */ = {isa = PBXBuildFile; fileRef = A98F92AC11C0D26A0023655C /* protocol.c */; };
 		A98F92BE11C0D26A0023655C /* unix.c in Sources */ = {isa = PBXBuildFile; fileRef = A98F92AD11C0D26A0023655C /* unix.c */; };
-		A98F92BF11C0D26A0023655C /* win32.c in Sources */ = {isa = PBXBuildFile; fileRef = A98F92AE11C0D26A0023655C /* win32.c */; };
 		A9C3E3491290D1C400C795A1 /* ZL_Platform.h in Headers */ = {isa = PBXBuildFile; fileRef = A9C3E3431290D1C400C795A1 /* ZL_Platform.h */; };
 		A9C3E34A1290D1C400C795A1 /* ZL_PlatformConfig.h in Headers */ = {isa = PBXBuildFile; fileRef = A9C3E3441290D1C400C795A1 /* ZL_PlatformConfig.h */; };
 		A9C3E34B1290D1C400C795A1 /* ZL_PlatformIOS.h in Headers */ = {isa = PBXBuildFile; fileRef = A9C3E3451290D1C400C795A1 /* ZL_PlatformIOS.h */; };
@@ -54,6 +54,7 @@
 		0497E280160DBBC20099A6A4 /* stb_vorbis.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = stb_vorbis.cpp; path = Source/stb/stb_vorbis.cpp; sourceTree = "<group>"; };
 		049A5095168DDC2400CB2996 /* ZL_PlatformGLSL.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ZL_PlatformGLSL.cpp; path = Source/ZL_PlatformGLSL.cpp; sourceTree = "<group>"; };
 		04A726A013EDB0FB0094CE15 /* libZillaLib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libZillaLib.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		9455D9461D04638000B4571A /* ZL_Display3D.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ZL_Display3D.cpp; path = Source/ZL_Display3D.cpp; sourceTree = "<group>"; };
 		949488E71BD8085900486A3F /* ZL_File_ZIP.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ZL_File_ZIP.cpp; path = Source/ZL_File_ZIP.cpp; sourceTree = "<group>"; };
 		A98F8E4211C0BB350023655C /* ZL_Application.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ZL_Application.cpp; path = Source/ZL_Application.cpp; sourceTree = "<group>"; };
 		A98F8E4311C0BB350023655C /* ZL_Display.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ZL_Display.cpp; path = Source/ZL_Display.cpp; sourceTree = "<group>"; };
@@ -77,7 +78,6 @@
 		A98F92AB11C0D26A0023655C /* peer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = peer.c; sourceTree = "<group>"; };
 		A98F92AC11C0D26A0023655C /* protocol.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = protocol.c; sourceTree = "<group>"; };
 		A98F92AD11C0D26A0023655C /* unix.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = unix.c; sourceTree = "<group>"; };
-		A98F92AE11C0D26A0023655C /* win32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = win32.c; sourceTree = "<group>"; };
 		A9C3E3431290D1C400C795A1 /* ZL_Platform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ZL_Platform.h; path = Source/ZL_Platform.h; sourceTree = "<group>"; };
 		A9C3E3441290D1C400C795A1 /* ZL_PlatformConfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ZL_PlatformConfig.h; path = Source/ZL_PlatformConfig.h; sourceTree = "<group>"; };
 		A9C3E3451290D1C400C795A1 /* ZL_PlatformIOS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ZL_PlatformIOS.h; path = Source/ZL_PlatformIOS.h; sourceTree = "<group>"; };
@@ -133,6 +133,7 @@
 				A9C3E3471290D1C400C795A1 /* ZL_PlatformPosix.cpp */,
 				A98F8E4211C0BB350023655C /* ZL_Application.cpp */,
 				A98F8E4311C0BB350023655C /* ZL_Display.cpp */,
+				9455D9461D04638000B4571A /* ZL_Display3D.cpp */,
 				A98F8E4611C0BB350023655C /* ZL_File.cpp */,
 				949488E71BD8085900486A3F /* ZL_File_ZIP.cpp */,
 				A98F8E4711C0BB350023655C /* ZL_Font.cpp */,
@@ -164,7 +165,6 @@
 				A98F92AB11C0D26A0023655C /* peer.c */,
 				A98F92AC11C0D26A0023655C /* protocol.c */,
 				A98F92AD11C0D26A0023655C /* unix.c */,
-				A98F92AE11C0D26A0023655C /* win32.c */,
 			);
 			name = enet;
 			path = Source/enet;
@@ -244,6 +244,7 @@
 				949488E81BD8085900486A3F /* ZL_File_ZIP.cpp in Sources */,
 				A98F8F2711C0BB350023655C /* ZL_Application.cpp in Sources */,
 				A98F8F2811C0BB350023655C /* ZL_Display.cpp in Sources */,
+				9455D9471D04638000B4571A /* ZL_Display3D.cpp in Sources */,
 				A98F8F2B11C0BB350023655C /* ZL_File.cpp in Sources */,
 				A98F8F2C11C0BB350023655C /* ZL_Font.cpp in Sources */,
 				A98F8F2E11C0BB350023655C /* ZL_Math.cpp in Sources */,
@@ -264,7 +265,6 @@
 				A98F92BC11C0D26A0023655C /* peer.c in Sources */,
 				A98F92BD11C0D26A0023655C /* protocol.c in Sources */,
 				A98F92BE11C0D26A0023655C /* unix.c in Sources */,
-				A98F92BF11C0D26A0023655C /* win32.c in Sources */,
 				DB7E9E9F11D9F7080034E286 /* tesselator.c in Sources */,
 				DB0C433B11E36F0A0049340A /* ZL_Input.cpp in Sources */,
 				DBFD08C211FA2B87000DC310 /* ZL_Particles.cpp in Sources */,

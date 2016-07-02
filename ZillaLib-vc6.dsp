@@ -413,6 +413,9 @@ SOURCE=.\Include\ZL_Audio.h
 SOURCE=.\Include\ZL_Display.h
 # End Source File
 # Begin Source File
+SOURCE=.\Include\ZL_Display3D.h
+# End Source File
+# Begin Source File
 SOURCE=.\Include\ZL_Events.h
 # End Source File
 # Begin Source File
@@ -426,6 +429,9 @@ SOURCE=.\Include\ZL_Input.h
 # End Source File
 # Begin Source File
 SOURCE=.\Include\ZL_Math.h
+# End Source File
+# Begin Source File
+SOURCE=.\Include\ZL_Math3D.h
 # End Source File
 # Begin Source File
 SOURCE=.\Include\ZL_Network.h
@@ -468,6 +474,9 @@ SOURCE=.\Source\ZL_Audio.cpp
 # End Source File
 # Begin Source File
 SOURCE=.\Source\ZL_Display.cpp
+# End Source File
+# Begin Source File
+SOURCE=.\Source\ZL_Display3D.cpp
 # End Source File
 # Begin Source File
 SOURCE=.\Source\ZL_Display_Impl.h

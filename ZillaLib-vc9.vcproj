@@ -212,10 +212,12 @@
 		<Filter Name="Include" Filter="h;hpp;hxx;hm;inl">
 			<File RelativePath="Include\ZL_Application.h" />
 			<File RelativePath="Include\ZL_Display.h" />
+			<File RelativePath="Include\ZL_Display3D.h" />
 			<File RelativePath="Include\ZL_File.h" />
 			<File RelativePath="Include\ZL_Font.h" />
 			<File RelativePath="Include\ZL_Input.h" />
 			<File RelativePath="Include\ZL_Math.h" />
+			<File RelativePath="Include\ZL_Math3D.h" />
 			<File RelativePath="Include\ZL_Network.h" />
 			<File RelativePath="Include\ZL_Particles.h" />
 			<File RelativePath="Include\ZL_Scene.h" />
@@ -231,6 +233,7 @@
 		<Filter Name="Source" Filter="cpp">
 			<File RelativePath="Source\ZL_Application.cpp" />
 			<File RelativePath="Source\ZL_Display.cpp" />
+			<File RelativePath="Source\ZL_Display3D.cpp" />
 			<File RelativePath="Source\ZL_Display_Impl.h" />
 			<File RelativePath="Source\ZL_File.cpp" />
 			<File RelativePath="Source\ZL_File_Impl.h" />
