@@ -313,10 +313,13 @@ struct ZL_Plane
 	ZL_Vector N; //unit normal
 	scalar D; //distance from the plane to the origin from a normal and a point
 	ZL_Plane() : N(1,0), D(0) {}
+	ZL_Plane(const ZL_Vector& N, scalar D) : N(N), D(D) {}
 	ZL_Plane(const ZL_Vector& p1, const ZL_Vector& p2) : N((p2-p1).Perp().Norm()), D(-N.DotP(p1)) {}
 	inline ZL_Plane& Invert() { N.x *= -1; N.y *= -1; D *= -1; return *this; }
 	inline ZL_Plane PlaneInvert() const { ZL_Plane r; r.N.x = N.x*-1; r.N.y = N.y*-1; r.D = D*-1; return r; }
-	scalar GetDistanceToPoint(const ZL_Vector& p) const { return N.DotP(p) + D; }
+	scalar GetDistanceToPoint(const ZL_Vector& p) const { return (N|p) + D; }
+	ZL_Vector GetRayPoint(const ZL_Vector& a, const ZL_Vector& b) { ZL_Vector ba = b-a; scalar x = N|ba; return (x ? a + (ba * ((D - (N|a))/(N|ba))) : a); }
+	scalar GetRayT(const ZL_Vector& a, const ZL_Vector& b) { scalar x = N|(b-a); return (x ? (D - (N|a))/x : S_MAX); } // < 0 then ray intersection is before a, > 1 after b
 };
 
 struct ZL_AABB

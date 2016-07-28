@@ -90,6 +90,7 @@ void ZL_Display_Process_Event(ZL_Event& event)
 			break;
 		case ZL_EVENT_KEYUP:
 			event.key.is_down = false;
+			event.key.is_repeat = false;
 			ZL_Display::KeyDown[event.key.key] = false;
 			if (ZL_WINDOWFLAGS_HAS(ZL_WINDOW_INPUT_FOCUS)) ZL_Display::sigKeyUp.call(event.key);
 			break;
