@@ -29,6 +29,8 @@
 #include <assert.h>
 #include <map>
 
+//#define ZL_DISPLAY3D_ALLOW_SHIFT_DEBUG_VIEW
+
 const ZL_Vector3 ZL_Vector3::Zero(0,0,0), ZL_Vector3::One(1,1,1), ZL_Vector3::Forward(0,0,1), ZL_Vector3::Right(1,0,0), ZL_Vector3::Up(0,1,0);
 
 struct ZL_ShaderIDs { GLuint Program; GLubyte UsedAttributeMask; GLint UniformMatrixModel, UniformMatrixNormal; };
@@ -39,6 +41,12 @@ static std::vector<struct ZL_MaterialProgram*> g_LoadedShaderVariations;
 static std::vector<struct ZL_MaterialProgram*> *g_LoadedMaterialPrograms;
 static std::vector<struct ZL_Mesh_Impl*> *g_LoadedMeshes;
 #endif
+
+static GLuint g_ShadowMap_FBO;
+static GLuint g_ShadowMap_TEX;
+static ZL_MaterialProgram* g_ShadowMapRenderMat;
+#define SHADOWMAP_SIZE 2048
+#define SHADOWMAP_SIZE_STRING "2048"
 
 namespace ZL_Display3D_Shaders
 {
@@ -204,17 +212,21 @@ struct ZL_Camera_Impl : public ZL_CameraBase_Impl
 	scalar FOV, ZNear, ZFar;
 	ZL_Camera_Impl() : FOV(s(90)), ZNear(s(.1)), ZFar(s(1000)) { UpdateMatrix(); }
 	void UpdateMatrix() { VP = ZL_Matrix::MakeCamera(Pos, Dir) * ZL_Matrix::MakePerspectiveHorizontal(FOV, ZLWIDTH/ZLHEIGHT, ZNear, ZFar); UpdateCount += 0x10000; }
+	//void UpdateMatrix() { VP = ZL_Matrix::MakeCamera(Pos, Dir) * ZL_Matrix::MakeOrtho(-15, 15, -5, 5, 2.0f, 28.0f); UpdateCount += 0x10000; }
 };
 
 struct ZL_Light_Impl : public ZL_CameraBase_Impl
 {
-	ZL_Matrix BiasedLightMatrix;
+	ZL_Matrix Ortho, BiasedLightMatrix;
+	scalar OrthoSize, OrthoNear, OrthoFar;
 	ZL_Vector3 Color;
-	ZL_Light_Impl() : Color(1,1,1) { UpdateMatrix(); }
+	ZL_Light_Impl() : Color(1,1,1), OrthoSize(2), OrthoNear(1), OrthoFar(50) { UpdateMatrix(); }
 	void UpdateMatrix()
 	{
-		VP = ZL_Matrix::MakeCamera(Pos, Dir) * ZL_Matrix::MakeOrtho(-2, 2, -2, 2, 1.0f, 50.5f);
+		VP = ZL_Matrix::MakeCamera(Pos, Dir) * ZL_Matrix::MakeOrtho(-OrthoSize, OrthoSize, -OrthoSize, OrthoSize, OrthoNear, OrthoFar);
+		//VP = ZL_Matrix::MakeCamera(Pos, Dir) * ZL_Matrix::MakeOrtho(-2, 2, -2, 2, 1.0f, 50.5f);
 		//VP = ZL_Matrix::MakeCamera(Pos, Dir) * ZL_Matrix::MakeOrtho(-15, 15, -15, 15, 1.0f, 50.5f);
+		//VP = ZL_Matrix::MakeCamera(Pos, Dir) * ZL_Matrix::MakeOrtho(-5, 5, -5, 5, 4.0f, 8.0f);
 		//VP = ZL_Matrix::MakeCamera(Pos, Dir) * ZL_Matrix::MakePerspectiveHorizontal(30, 1, 1.0f, 57.5f);
 		BiasedLightMatrix = VP * ZL_Matrix(.5f, 0, 0, 0, 0, .5f, 0, 0, 0, 0, .5f, 0, .5f, .5f, .5f, 1);
 		UpdateCount += 0x10000;
@@ -253,29 +265,33 @@ struct ZL_Material_Impl : ZL_Impl
 
 	void SetUniformFloat(ZL_NameID Name, scalar val)
 	{
-		UniformValue* v = std::lower_bound(UniformSet.Values, UniformSet.Values+UniformSet.Num, Name);
-		assert(v < UniformSet.Values+UniformSet.Num);assert(v->Name == Name);assert(v->Type == UniformValue::TYPE_FLOAT);ZL_STATIC_ASSERT(sizeof(val)==sizeof(v->Value.Float),NEEDS_TO_MATCH);
+		UniformValue* v = std::lower_bound(UniformSet.Values, UniformSet.Values+UniformSet.Num, Name);		//
+		if (v == UniformSet.Values+UniformSet.Num || v->Name != Name) return;
+		assert(v->Type == UniformValue::TYPE_FLOAT);ZL_STATIC_ASSERT(sizeof(val)==sizeof(v->Value.Float),NEEDS_TO_MATCH);
 		v->Value.Float = val;
 		UniformSet.CalcValueChksum();
 	}
 	void SetUniformVec2(ZL_NameID Name, const ZL_Vector& val)
 	{
 		UniformValue* v = std::lower_bound(UniformSet.Values, UniformSet.Values+UniformSet.Num, Name);
-		assert(v < UniformSet.Values+UniformSet.Num);assert(v->Name == Name);assert(v->Type == UniformValue::TYPE_VEC2);ZL_STATIC_ASSERT(sizeof(val)==sizeof(v->Value.Vec2),NEEDS_TO_MATCH);
+		if (v == UniformSet.Values+UniformSet.Num || v->Name != Name) return;
+		assert(v->Type == UniformValue::TYPE_VEC2);ZL_STATIC_ASSERT(sizeof(val)==sizeof(v->Value.Vec2),NEEDS_TO_MATCH);
 		memcpy(v->Value.Vec2, &val, sizeof(val));
 		UniformSet.CalcValueChksum();
 	}
 	void SetUniformVec3(ZL_NameID Name, const ZL_Vector3& val)
 	{
 		UniformValue* v = std::lower_bound(UniformSet.Values, UniformSet.Values+UniformSet.Num, Name);
-		assert(v < UniformSet.Values+UniformSet.Num);assert(v->Name == Name);assert(v->Type == UniformValue::TYPE_VEC3);ZL_STATIC_ASSERT(sizeof(val)==sizeof(v->Value.Vec3),NEEDS_TO_MATCH);
+		if (v == UniformSet.Values+UniformSet.Num || v->Name != Name) return;
+		assert(v->Type == UniformValue::TYPE_VEC3);ZL_STATIC_ASSERT(sizeof(val)==sizeof(v->Value.Vec3),NEEDS_TO_MATCH);
 		memcpy(v->Value.Vec3, &val, sizeof(val));
 		UniformSet.CalcValueChksum();
 	}
 	void SetUniformVec4(ZL_NameID Name, const ZL_Color& val)
 	{
 		UniformValue* v = std::lower_bound(UniformSet.Values, UniformSet.Values+UniformSet.Num, Name);
-		assert(v < UniformSet.Values+UniformSet.Num);assert(v->Name == Name);assert(v->Type == UniformValue::TYPE_VEC4);ZL_STATIC_ASSERT(sizeof(val)==sizeof(v->Value.Vec4),NEEDS_TO_MATCH);
+		if (v == UniformSet.Values+UniformSet.Num || v->Name != Name) return;
+		assert(v->Type == UniformValue::TYPE_VEC4);ZL_STATIC_ASSERT(sizeof(val)==sizeof(v->Value.Vec4),NEEDS_TO_MATCH);
 		memcpy(v->Value.Vec4, &val, sizeof(val));
 		UniformSet.CalcValueChksum();
 	}
@@ -286,6 +302,13 @@ struct ZL_Material_Impl : ZL_Impl
 		ZL_Texture_Impl *texi = (srfi ? srfi->tex : NULL);
 		ZL_Impl::CopyRef(texi, (ZL_Impl*&)UniformSet.TextureReferences[Num]);
 		UniformSet.CalcTextureChksum();
+	}
+	ZL_Color GetUniformVec4(ZL_NameID Name)
+	{
+		UniformValue* v = std::lower_bound(UniformSet.Values, UniformSet.Values+UniformSet.Num, Name);
+		if (v == UniformSet.Values+UniformSet.Num || v->Name != Name) return ZL_Color::White;
+		assert(v->Type == UniformValue::TYPE_VEC4);
+		return ZL_Color(v->Value.Vec4[0], v->Value.Vec4[1], v->Value.Vec4[2], v->Value.Vec4[3]);
 	}
 	virtual void Activate(const ZL_CameraBase_Impl* Camera, const ZL_Light_Impl* Light = NULL) = 0;
 	virtual struct ZL_MaterialProgram* GetShaderProgram() = 0;
@@ -318,7 +341,8 @@ struct ZL_MaterialProgram : ZL_Material_Impl
 	~ZL_MaterialProgram()
 	{
 		if (ShaderIDs.Program) glDeleteProgram(ShaderIDs.Program);
-		if (MaterialModes && !g_LoadedShaderVariations.empty()) g_LoadedShaderVariations.erase(FindVariation(MaterialModes)); //could be empty depending on global instance destructor order
+		if (MaterialModes && !(MaterialModes & (ZL_Display3D_Shaders::MMDEF_USECUSTOMFRAGMENT|ZL_Display3D_Shaders::MMDEF_USECUSTOMVERTEX)) && !g_LoadedShaderVariations.empty())
+			g_LoadedShaderVariations.erase(FindVariation(MaterialModes)); //could be empty depending on global instance destructor order
 
 		#ifdef ZL_VIDEO_WEAKCONTEXT
 		if (ShaderIDs.Program) g_LoadedMaterialPrograms->erase(std::find(g_LoadedMaterialPrograms->begin(), g_LoadedMaterialPrograms->end(), this));
@@ -448,10 +472,9 @@ struct ZL_MaterialProgram : ZL_Material_Impl
 		GLsizei VSCount = SourceListFunc::Build(VSRules, COUNT_OF(VSRules), MM, VS, VSNullReplacements);
 		GLsizei FSCount = SourceListFunc::Build(FSRules, COUNT_OF(FSRules), MM, FS, FSNullReplacements);
 
-		if (CustomFragmentCode || CustomVertexCode) MM = 0; //becomes custom program instance, not to be returned again
 		ZL_MaterialProgram* p = new ZL_MaterialProgram(VSCount, VS, FSCount, FS, MM);
 		if (!p->ShaderIDs.Program) { p->MaterialModes = 0; delete p; return NULL; }
-		if (MM) g_LoadedShaderVariations.insert(it, p);
+		if (!(MM & (MMDEF_USECUSTOMFRAGMENT|MMDEF_USECUSTOMVERTEX))) g_LoadedShaderVariations.insert(it, p);
 		return p;
 	}
 
@@ -515,12 +538,12 @@ struct ZL_MaterialInstance : ZL_Material_Impl
 {
 	ZL_MaterialProgram *Parent;
 
-	ZL_MaterialInstance(ZL_MaterialProgram *Parent) : Parent(Parent)
+	ZL_MaterialInstance(ZL_Material_Impl *Base) : Parent(Base->GetShaderProgram())
 	{
 		Parent->AddRef();
-		UniformSet = Parent->UniformSet;
+		UniformSet = Base->UniformSet;
 		UniformSet.Values = (UniformValue*)malloc(sizeof(UniformValue) * UniformSet.Num);
-		memcpy(UniformSet.Values, Parent->UniformSet.Values, sizeof(UniformValue) * UniformSet.Num);
+		memcpy(UniformSet.Values, Base->UniformSet.Values, sizeof(UniformValue) * UniformSet.Num);
 	}
 
 	~ZL_MaterialInstance() { Parent->DelRef(); }
@@ -545,7 +568,7 @@ struct ZL_Mesh_Impl : ZL_Impl
 	struct MeshPart
 	{
 		ZL_NameID Name; GLsizei IndexCount; GLushort* IndexOffsetPtr; ZL_Material_Impl* Program;
-		MeshPart(ZL_NameID Name, GLsizei IndexCount, GLushort* IndexOffsetPtr,  ZL_Material_Impl* Program) : Name(Name), IndexCount(IndexCount), IndexOffsetPtr(IndexOffsetPtr), Program(Program) {}
+		MeshPart(ZL_NameID Name, GLsizei IndexCount, GLushort* IndexOffsetPtr,  ZL_Material_Impl* Program) : Name(Name), IndexCount(IndexCount), IndexOffsetPtr(IndexOffsetPtr), Program(Program) { if (Program) Program->AddRef(); }
 		bool operator==(ZL_NameID n) { return Name == n; }
 	};
 	MeshPart *Parts, *PartsEnd;
@@ -587,6 +610,8 @@ struct ZL_Mesh_Impl : ZL_Impl
 	~ZL_Mesh_Impl()
 	{
 		if (IndexBufferObject) glDeleteBuffers(2, &IndexBufferObject);
+		for (MeshPart* it = Parts; it != PartsEnd; ++it) it->Program->DelRef();
+		free(Parts);
 
 		#ifdef ZL_VIDEO_WEAKCONTEXT
 		if (IndexBufferObject) { free(WeakIndices); free(WeakVertData); g_LoadedMeshes->erase(std::find(g_LoadedMeshes->begin(), g_LoadedMeshes->end(), this)); }
@@ -689,15 +714,15 @@ struct ZL_Mesh_Impl : ZL_Impl
 		return true;
 	}
 
-	static ZL_Mesh_Impl* LoadAny(const ZL_FileLink& file)
+	static ZL_Mesh_Impl* LoadAny(const ZL_FileLink& file, ZL_Material_Impl* Material)
 	{
 		unsigned char *buffer = ReadMeshFile(file);
 		if (!buffer) return NULL;
-		if (buffer[0] == 'p' && buffer[1] == 'l' && buffer[2] == 'y') return PLYLoad(file, buffer);
-		return OBJLoad(file, buffer);
+		if (buffer[0] == 'p' && buffer[1] == 'l' && buffer[2] == 'y') return PLYLoad(file, Material, buffer);
+		return OBJLoad(file, Material, buffer);
 	}
 
-	static ZL_Mesh_Impl* PLYLoad(const ZL_FileLink& file, unsigned char *ply_buffer = NULL)
+	static ZL_Mesh_Impl* PLYLoad(const ZL_FileLink& file, ZL_Material_Impl* Material, unsigned char *ply_buffer = NULL)
 	{
 		if (!ply_buffer) ply_buffer = ReadMeshFile(file);
 		assert(ply_buffer);
@@ -781,7 +806,7 @@ struct ZL_Mesh_Impl : ZL_Impl
 		res->CreateAndFillBufferData(&Indices[0], (GLsizei)Indices.size(), VertData, vertex_count);
 		free(VertData);
 		res->Parts = (MeshPart*)malloc(sizeof(MeshPart));
-		res->Parts[0] = MeshPart(ZL_NameID(), (GLsizei)Indices.size(), NULL, ZL_MaterialProgram::GetReference(ZL_MaterialModes::MM_STATICCOLOR));
+		res->Parts[0] = MeshPart(ZL_NameID(), (GLsizei)Indices.size(), NULL, Material);
 		res->PartsEnd = res->Parts+1;
 		ZL_LOG3("3D", "Loaded PLY - Verts: %d - Indices: %d - Parts: %d", vertex_count, Indices.size(), 1);
 		return res;
@@ -795,7 +820,7 @@ struct ZL_Mesh_Impl : ZL_Impl
 		return ind;
 	}
 
-	static ZL_Mesh_Impl* OBJLoad(const ZL_FileLink& file, unsigned char *obj_buffer = NULL, ZL_Mesh_Impl* (*MakeFunc)(GLubyte AttributeMask) = NULL, std::vector<unsigned int>* used_indices = NULL)
+	static ZL_Mesh_Impl* OBJLoad(const ZL_FileLink& file, ZL_Material_Impl* Material, unsigned char *obj_buffer = NULL, ZL_Mesh_Impl* (*MakeFunc)(GLubyte AttributeMask) = NULL, std::vector<unsigned int>* used_indices = NULL)
 	{
 		if (!obj_buffer) obj_buffer = ReadMeshFile(file);
 		if (!obj_buffer) return NULL;
@@ -869,9 +894,40 @@ struct ZL_Mesh_Impl : ZL_Impl
 		res->Parts = (MeshPart*)malloc(sizeof(MeshPart) * Parts.size());
 		memcpy(res->Parts, &Parts[0], sizeof(MeshPart) * Parts.size());
 		res->PartsEnd = res->Parts + Parts.size();
-		for (MeshPart* itMP = res->Parts; itMP != res->PartsEnd; ++itMP) itMP->Program = ZL_MaterialProgram::GetReference(ZL_MaterialModes::MM_STATICCOLOR);
+		for (MeshPart* itMP = res->Parts; itMP != res->PartsEnd; ++itMP) { Material->AddRef(); itMP->Program = Material; }
 		ZL_LOG3("3D", "Loaded OBJ - Verts: %d - Indices: %d - Parts: %d", unique_indices.size(), Indices.size(), Parts.size());
 		return res;
+	}
+
+	void LoadMTLFile(unsigned char* buf)
+	{
+		ZL_MaterialInstance *mat = NULL;
+		for (unsigned char *line_end = buf, *line, *p; AdvanceLine(line_end, line);)
+		{
+			size_t line_length = line_end - line;
+			if (line_length > 7 && !memcmp(line, "newmtl ", 7))
+			{
+				ZL_Mesh_Impl::MeshPart* it = std::find(Parts, PartsEnd, ZL_NameID((char*)line+7, line_length-7));
+				if (it == PartsEnd) mat = NULL;
+				else { mat = new ZL_MaterialInstance(it->Program); it->Program->DelRef(); it->Program = mat; }
+				continue;
+			}
+			if (!mat) continue;
+
+			GLscalar param[4];
+			size_t param_count = 0;
+			for (p = line; p != line_end && *p > ' ';) p++;
+			for (unsigned char *pEnd; param_count < 4; p = pEnd, param_count++)
+			{
+				while (p != line_end && *p <= ' ') p++;
+				if (p == line_end) break;
+				param[param_count] = (GLscalar)strtod((char*)p, (char**)&pEnd);
+				if (pEnd == p) break;
+			}
+			if      (param_count == 1 && line[0] == 'N' && line[1] == 's') mat->SetUniformFloat(Z3U_SPECULAR, param[0]*0.01f);
+			else if (param_count == 3 && line[0] == 'K' && line[1] == 'd') mat->SetUniformVec4(Z3U_COLOR, ZL_Color(param[0], param[1], param[2], mat->GetUniformVec4(Z3U_COLOR).a));
+			else if (param_count == 1 && line[0] == 'd' && line[1] == ' ') { ZL_Color c = mat->GetUniformVec4(Z3U_COLOR); c.a = param[0]; mat->SetUniformVec4(Z3U_COLOR, c); }
+		}
 	}
 
 	void DrawPart(MeshPart* p, const ZL_Matrix& ModelMatrix, const ZL_Matrix& NormalMatrix)
@@ -964,7 +1020,7 @@ struct ZL_MeshAnimated_Impl : public ZL_Mesh_Impl
 		#endif
 	}
 
-	static ZL_Mesh_Impl* OBJLoadAnimation(const ZL_FileLink& file)
+	static ZL_Mesh_Impl* OBJLoadAnimation(const ZL_FileLink& file, ZL_Material_Impl* Material)
 	{
 		ZL_File f = file.Open();
 		ZL_File_Impl* fileimpl = ZL_ImplFromOwner<ZL_File_Impl>(f);
@@ -972,13 +1028,19 @@ struct ZL_MeshAnimated_Impl : public ZL_Mesh_Impl
 
 		std::vector<unsigned int> used_indices;
 		ZL_MeshAnimated_Impl* res = NULL;
-		unsigned char* buf;
-		for (unsigned int Frame = 0; (buf = ZL_RWopsZIP::ReadSingle(fileimpl->src, Frame)); Frame++)
+		unsigned char *buf, *bufmtl = NULL;
+		for (unsigned int FileIndex = 0; (buf = ZL_RWopsZIP::ReadSingle(fileimpl->src, FileIndex)); FileIndex++)
 		{
-			if (Frame == 0)
+			if (strstr((char*)buf, "newmtl "))
+			{
+				bufmtl = buf;
+				continue;
+			}
+
+			if (FileIndex == 0 || (bufmtl && FileIndex == 1))
 			{
 				struct MakeFunc { static ZL_Mesh_Impl* Make(GLubyte AttributeMask) { return new ZL_MeshAnimated_Impl(AttributeMask); } };
-				res = static_cast<ZL_MeshAnimated_Impl*>(OBJLoad(file, buf, &MakeFunc::Make, &used_indices));
+				res = static_cast<ZL_MeshAnimated_Impl*>(OBJLoad(file, Material, buf, &MakeFunc::Make, &used_indices));
 				if (!res) return NULL;
 				res->FrameVertexBufferObjects.push_back(res->VertexBufferObject);
 				continue;
@@ -1019,6 +1081,11 @@ struct ZL_MeshAnimated_Impl : public ZL_Mesh_Impl
 
 			free(buf);
 		}
+		if (bufmtl)
+		{
+			if (res) res->LoadMTLFile(bufmtl);
+			free(bufmtl);
+		}
 		return res;
 	}
 
@@ -1035,7 +1102,7 @@ struct ZL_RenderList_Impl : public ZL_Impl
 	struct PartEntry { ZL_Mesh_Impl::MeshPart* Part; GLushort MeshIndex, UniformSetIndex; };
 	std::vector<ZL_Mesh_Impl*> ReferencedMeshes;
 	std::vector<MeshEntry> Meshes;
-	std::vector<PartEntry> SortedParts;
+	std::vector<PartEntry> SortedParts, CustomVertexShaderParts;
 	std::vector<ZL_Material_Impl::UniformValue> UniformValues;
 	std::vector<ZL_Material_Impl::sUniformSet> UniformSets;
 
@@ -1099,6 +1166,8 @@ struct ZL_RenderList_Impl : public ZL_Impl
 		assert(!SortedParts.empty());
 		for (PartEntry *e = &SortedParts[0], *eEnd = e + SortedParts.size(); e != eEnd; e++)
 		{
+			if (e->Part->Program->GetShaderProgram()->MaterialModes & ZL_Display3D_Shaders::MMDEF_USECUSTOMVERTEX)
+				continue;
 			MeshEntry& me = Meshes[e->MeshIndex];
 			me.Mesh->DrawPart(e->Part, me.ModelMatrix, me.NormalMatrix);
 		}
@@ -1136,7 +1205,7 @@ struct ZL_RenderList_Impl : public ZL_Impl
 ZL_IMPL_OWNER_DEFAULT_IMPLEMENTATIONS(ZL_Material)
 ZL_Material::ZL_Material(unsigned int MaterialModes) : impl(ZL_MaterialProgram::GetReference(MaterialModes)) { }
 ZL_Material::ZL_Material(unsigned int MaterialModes, const char* CustomFragmentCode, const char* CustomVertexCode) : impl(ZL_MaterialProgram::GetReference(MaterialModes, CustomFragmentCode, CustomVertexCode)) { }
-ZL_Material ZL_Material::MakeNewMaterialInstance() { return (impl ? ZL_ImplMakeOwner<ZL_Material>(new ZL_MaterialInstance(impl->GetShaderProgram()), false) : ZL_Material()); }
+ZL_Material ZL_Material::MakeNewMaterialInstance() { return (impl ? ZL_ImplMakeOwner<ZL_Material>(new ZL_MaterialInstance(impl), false) : ZL_Material()); }
 ZL_Material& ZL_Material::SetUniformFloat(ZL_NameID Name, scalar val) { if (impl) impl->SetUniformFloat(Name, val); return *this; }
 ZL_Material& ZL_Material::SetUniformVec2(ZL_NameID Name, const ZL_Vector& val) { if (impl) impl->SetUniformVec2(Name, val); return *this; }
 ZL_Material& ZL_Material::SetUniformVec3(ZL_NameID Name, const ZL_Vector3& val) { if (impl) impl->SetUniformVec3(Name, val); return *this; }
@@ -1147,9 +1216,9 @@ ZL_Material& ZL_Material::SetSpecularTexture(ZL_Surface& srf) { if (impl) impl->
 ZL_Material& ZL_Material::SetParallaxTexture(ZL_Surface& srf) { if (impl) impl->SetTexture(3, srf); return *this; }
 
 ZL_IMPL_OWNER_DEFAULT_IMPLEMENTATIONS(ZL_Mesh)
-ZL_Mesh::ZL_Mesh(const ZL_FileLink& ModelFile) : impl(ZL_Mesh_Impl::LoadAny(ModelFile)) {}
-ZL_Mesh ZL_Mesh::FromPLY(const ZL_FileLink& PLYFile) { ZL_Mesh m; m.impl = ZL_Mesh_Impl::PLYLoad(PLYFile); return m; }
-ZL_Mesh ZL_Mesh::FromOBJ(const ZL_FileLink& OBJFile) { ZL_Mesh m; m.impl = ZL_Mesh_Impl::OBJLoad(OBJFile); return m; }
+ZL_Mesh::ZL_Mesh(const ZL_FileLink& ModelFile, const ZL_Material& Material) : impl(ZL_Mesh_Impl::LoadAny(ModelFile, ZL_ImplFromOwner<ZL_Material_Impl>(Material))) {}
+ZL_Mesh ZL_Mesh::FromPLY(const ZL_FileLink& PLYFile, const ZL_Material& Material) { ZL_Mesh m; m.impl = ZL_Mesh_Impl::PLYLoad(PLYFile, ZL_ImplFromOwner<ZL_Material_Impl>(Material)); return m; }
+ZL_Mesh ZL_Mesh::FromOBJ(const ZL_FileLink& OBJFile, const ZL_Material& Material) { ZL_Mesh m; m.impl = ZL_Mesh_Impl::OBJLoad(OBJFile, ZL_ImplFromOwner<ZL_Material_Impl>(Material)); return m; }
 void ZL_Mesh::Draw(const ZL_Matrix& Matrix, const ZL_Camera* Camera, const ZL_Light* Light) { if (impl) impl->Draw(Matrix, Matrix.GetInverseTransposed(), (Camera ? ZL_ImplFromOwner<ZL_Camera_Impl>(*Camera) : NULL), (Light ? ZL_ImplFromOwner<ZL_Light_Impl>(*Light) : NULL)); }
 #if defined(ZILLALOG) && !defined(ZL_VIDEO_OPENGL_ES2)
 void ZL_Mesh::DrawDebug(const ZL_Matrix& Matrix, const struct ZL_Camera& Camera) { if (impl) impl->DrawDebug(Matrix, Camera); }
@@ -1192,7 +1261,7 @@ ZL_Mesh& ZL_Mesh::SetMaterial(const ZL_Material& Material)
 	return *this;
 }
 
-ZL_Mesh ZL_Mesh::BuildPlane(ZL_Vector Extents)
+ZL_Mesh ZL_Mesh::BuildPlane(ZL_Vector Extents, const ZL_Material& Material)
 {
 	GLscalar Verts[] = {
 		 Extents.x,  Extents.y, 0, 0,0,1, Extents.x, Extents.y, 1,0,0,
@@ -1225,10 +1294,10 @@ ZL_Mesh ZL_Mesh::BuildPlane(ZL_Vector Extents)
 		assert(Verts[b+8]==tangent.x && Verts[b+9]==tangent.y && Verts[b+10]==tangent.z);
 		assert(Verts[c+8]==tangent.x && Verts[c+9]==tangent.y && Verts[c+10]==tangent.z);
 	}
-	return ZL_ImplMakeOwner<ZL_Mesh>(ZL_Mesh_Impl::Make((ZL_Mesh_Impl::VAMASK_NORMAL|ZL_Mesh_Impl::VAMASK_TEXCOORD|ZL_Mesh_Impl::VAMASK_TANGENT), Indices, 6, Verts, 4, ZL_MaterialProgram::GetReference(ZL_MaterialModes::MM_STATICCOLOR)), false);
+	return ZL_ImplMakeOwner<ZL_Mesh>(ZL_Mesh_Impl::Make((ZL_Mesh_Impl::VAMASK_NORMAL|ZL_Mesh_Impl::VAMASK_TEXCOORD|ZL_Mesh_Impl::VAMASK_TANGENT), Indices, 6, Verts, 4, ZL_ImplFromOwner<ZL_Material_Impl>(Material)), false);
 }
 
-ZL_Mesh ZL_Mesh::BuildLandscape()
+ZL_Mesh ZL_Mesh::BuildLandscape(const ZL_Material& Material)
 {
 	struct NoiseFuncs
 	{
@@ -1262,10 +1331,10 @@ ZL_Mesh ZL_Mesh::BuildLandscape()
 		ZL_Vector NormY = ZL_Vector::FromAngle(satan2(yb->y - ya->y, 2)+PIHALF);
 		*n = ZL_Vector3(NormX.x, (NormX.y + NormY.y) * .5f, NormY.x).VecNorm();
 	}
-	return ZL_ImplMakeOwner<ZL_Mesh>(ZL_Mesh_Impl::Make((ZL_Mesh_Impl::VAMASK_NORMAL|ZL_Mesh_Impl::VAMASK_TEXCOORD|ZL_Mesh_Impl::VAMASK_TANGENT), &Indices[0], (GLsizei)Indices.size(), &Verts[0], (GLsizei)(Verts.size()/11), ZL_MaterialProgram::GetReference(ZL_MaterialModes::MM_STATICCOLOR)), false);
+	return ZL_ImplMakeOwner<ZL_Mesh>(ZL_Mesh_Impl::Make((ZL_Mesh_Impl::VAMASK_NORMAL|ZL_Mesh_Impl::VAMASK_TEXCOORD|ZL_Mesh_Impl::VAMASK_TANGENT), &Indices[0], (GLsizei)Indices.size(), &Verts[0], (GLsizei)(Verts.size()/11), ZL_ImplFromOwner<ZL_Material_Impl>(Material)), false);
 }
 
-ZL_Mesh ZL_Mesh::BuildSphere(scalar Radius, int Segments, bool Inside)
+ZL_Mesh ZL_Mesh::BuildSphere(scalar Radius, int Segments, bool Inside, const ZL_Material& Material)
 {
 	std::vector<GLscalar> Verts;
 	std::vector<GLushort> Indices;
@@ -1304,11 +1373,11 @@ ZL_Mesh ZL_Mesh::BuildSphere(scalar Radius, int Segments, bool Inside)
 			else        { GLushort is[] = { c,b,a , d,c,a }; Indices.insert(Indices.end(), is, is + COUNT_OF(is)); }
 		}
 	}
-	return ZL_ImplMakeOwner<ZL_Mesh>(ZL_Mesh_Impl::Make((ZL_Mesh_Impl::VAMASK_NORMAL|ZL_Mesh_Impl::VAMASK_TEXCOORD|ZL_Mesh_Impl::VAMASK_TANGENT), &Indices[0], (GLsizei)Indices.size(), &Verts[0], (GLsizei)(Verts.size()/11), ZL_MaterialProgram::GetReference(ZL_MaterialModes::MM_STATICCOLOR)), false);
+	return ZL_ImplMakeOwner<ZL_Mesh>(ZL_Mesh_Impl::Make((ZL_Mesh_Impl::VAMASK_NORMAL|ZL_Mesh_Impl::VAMASK_TEXCOORD|ZL_Mesh_Impl::VAMASK_TANGENT), &Indices[0], (GLsizei)Indices.size(), &Verts[0], (GLsizei)(Verts.size()/11), ZL_ImplFromOwner<ZL_Material_Impl>(Material)), false);
 }
 
 ZL_IMPL_OWNER_INHERITED_IMPLEMENTATIONS(ZL_MeshAnimated)
-ZL_MeshAnimated::ZL_MeshAnimated(const ZL_FileLink& ModelFile) { impl = ZL_MeshAnimated_Impl::OBJLoadAnimation(ModelFile); }
+ZL_MeshAnimated::ZL_MeshAnimated(const ZL_FileLink& ModelFile, const ZL_Material& Material) { impl = ZL_MeshAnimated_Impl::OBJLoadAnimation(ModelFile, ZL_ImplFromOwner<ZL_Material_Impl>(Material)); }
 ZL_MeshAnimated& ZL_MeshAnimated::SetFrame(unsigned int FrameIndex) { if (impl) static_cast<ZL_MeshAnimated_Impl*>(impl)->SetFrame(FrameIndex); return *this; }
 
 ZL_IMPL_OWNER_NONULLCON_IMPLEMENTATIONS(ZL_Camera)
@@ -1327,9 +1396,13 @@ scalar ZL_Camera::GetFarClipPlane() const { return impl->ZFar; }
 
 ZL_IMPL_OWNER_NONULLCON_IMPLEMENTATIONS(ZL_Light)
 ZL_Light::ZL_Light() : impl(new ZL_Light_Impl) { }
-ZL_Light& ZL_Light::SetPosition(const ZL_Vector3& pos)  { impl->Pos = pos; impl->UpdateMatrix(); return *this; }
+ZL_Light& ZL_Light::SetPosition(const ZL_Vector3& pos) { impl->Pos = pos; impl->UpdateMatrix(); return *this; }
 ZL_Light& ZL_Light::SetDirection(const ZL_Vector3& dir) { impl->Dir = dir; impl->UpdateMatrix(); return *this; }
-ZL_Light& ZL_Light::SetColor(const ZL_Color& color)     { impl->Color = ZL_Vector3(color.r*color.a, color.g*color.a, color.b*color.a); impl->UpdateMatrix(); return *this; }
+ZL_Light& ZL_Light::SetSize(scalar size) { impl->OrthoSize = size; impl->UpdateMatrix(); return *this; }
+ZL_Light& ZL_Light::SetRange(scalar range_far, scalar range_near) { impl->OrthoFar = range_far; impl->OrthoNear = range_near; impl->UpdateMatrix(); return *this; }
+ZL_Light& ZL_Light::SetColor(const ZL_Color& color) { impl->Color = ZL_Vector3(color.r*color.a, color.g*color.a, color.b*color.a); impl->UpdateMatrix(); return *this; }
+ZL_Matrix& ZL_Light::GetVPMatrix() { return impl->VP; }
+const ZL_Matrix& ZL_Light::GetVPMatrix() const { return impl->VP; }
 ZL_Vector3 ZL_Light::GetPosition() const { return impl->Pos; }
 ZL_Vector3 ZL_Light::GetDirection() const { return impl->Dir; }
 ZL_Color ZL_Light::GetColor() const { return ZL_Color(impl->Color.x, impl->Color.y, impl->Color.z); }
@@ -1339,12 +1412,6 @@ ZL_RenderList::ZL_RenderList() : impl(new ZL_RenderList_Impl) { }
 void ZL_RenderList::Reset() { impl->Reset(); }
 void ZL_RenderList::Add(const ZL_Mesh& Mesh, const ZL_Matrix& Matrix) { impl->Add(ZL_ImplFromOwner<ZL_Mesh_Impl>(Mesh), Matrix); }
 void ZL_RenderList::AddReferenced(const ZL_Mesh& Mesh, const ZL_Matrix& Matrix) { impl->AddReferenced(ZL_ImplFromOwner<ZL_Mesh_Impl>(Mesh), Matrix); }
-
-static GLuint g_ShadowMap_FBO;
-static GLuint g_ShadowMap_TEX;
-static ZL_MaterialProgram* g_ShadowMapRenderMat;
-#define SHADOWMAP_SIZE 1024
-#define SHADOWMAP_SIZE_STRING "1024"
 
 void InitGL3D(bool RecreateContext)
 {
@@ -1460,7 +1527,7 @@ void ZL_Display3D::FinishRendering()
 	if (g_Active3D.AttributeMask & ZL_Mesh_Impl::VAMASK_TEXCOORD) glDisableVertexAttribArray(ZL_Mesh_Impl::VA_TEXCOORD);
 	if (g_Active3D.AttributeMask & ZL_Mesh_Impl::VAMASK_TANGENT ) glDisableVertexAttribArray(ZL_Mesh_Impl::VA_TANGENT );
 	if (g_Active3D.AttributeMask & ZL_Mesh_Impl::VAMASK_COLOR   ) glDisableVertexAttribArray(ZL_Mesh_Impl::VA_COLOR   );
-	if (g_Active3D.Texture != GL_TEXTURE0) glActiveTexture(g_Active3D.Texture = GL_TEXTURE0);
+	if (g_Active3D.Texture && g_Active3D.Texture != GL_TEXTURE0) glActiveTexture(GL_TEXTURE0);
 	if (g_Active3D.IndexBuffer) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	if (g_Active3D.VertexBuffer) glBindBuffer(GL_ARRAY_BUFFER, 0);
 	memset(&g_Active3D, 0, sizeof(g_Active3D));
@@ -1470,7 +1537,7 @@ void ZL_Display3D::FinishRendering()
 
 	#if defined(ZILLALOG) && (0||ZL_DISPLAY3D_TEST_SHOWSHADOWMAP)
 	glBindTexture(GL_TEXTURE_2D, g_ShadowMap_TEX);
-	GLscalar halfscreen[8] = { 0,.5f , .5f,.5f , 0,0 , .5f,0 };
+	GLscalar halfscreen[8] = { 0,.5f , .5f/ZLASPECTR,.5f , 0,0 , .5f/ZLASPECTR,0 };
 	GLscalar fullbox[8] = { 0,1 , 1,1 , 0,0 , 1,0 };
 	GLscalar matrix[16] = { 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, -1, 0, -1, -1, 0, 1 };
 	ZLGLSL::_TEXTURE_PROGRAM_ACTIVATE();
@@ -1510,7 +1577,32 @@ void ZL_Display3D::DrawListsWithShadowMapping(const ZL_RenderList** RenderLists,
 	glBindFramebuffer(GL_FRAMEBUFFER, active_framebuffer);
 	glViewport(active_viewport[0], active_viewport[1], active_viewport[2], active_viewport[3]);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	
+
+	#if defined(ZILLALOG) && defined(ZL_DISPLAY3D_ALLOW_SHIFT_DEBUG_VIEW)
+	if (ZL_Display::KeyDown[ZLK_LSHIFT])
+	{
+		static ZL_Camera DebugCam;
+		static float DebugDist = 0.0f;
+		static float DebugLastMouseY = ZL_Display::PointerY;
+		if (ZL_Display::KeyDown[ZLK_LCTRL]) DebugDist += 0.1f*(DebugLastMouseY - ZL_Display::PointerY);
+		DebugLastMouseY = ZL_Display::PointerY;
+		DebugCam.SetDirection(-ZL_Vector3::FromRotation((ZL_Display::PointerX-ZLHALFW)/ZLHALFW*PI, -(ZL_Display::PointerY-ZLHALFH)/ZLHALFH*PIHALF*0.99f));
+		DebugCam.SetPosition(Camera.GetPosition() + Camera.GetDirection() * 5.0f + DebugCam.GetDirection() * -(5.0f+DebugDist));
+
+		for (size_t j = 0; j != NumLists; j++)
+			ZL_ImplFromOwner<ZL_RenderList_Impl>(*RenderLists[j])->RenderShaded(ZL_ImplFromOwner<ZL_Camera_Impl>(DebugCam), ZL_ImplFromOwner<ZL_Light_Impl>(Light));
+
+		ZL_Display3D::BeginRendering();
+		ZL_Display3D::DrawLine(DebugCam, ZL_Vector3(0,0,0), ZL_Vector3(100,0,0), ZL_Color::Red, 0.02f);
+		ZL_Display3D::DrawLine(DebugCam, ZL_Vector3(0,0,0), ZL_Vector3(0,100,0), ZL_Color::Green, 0.02f);
+		ZL_Display3D::DrawLine(DebugCam, ZL_Vector3(0,0,0), ZL_Vector3(0,0,100), ZL_Color::Blue, 0.02f);
+		ZL_Display3D::DrawFrustum(DebugCam, Camera.GetVPMatrix(), ZL_Color::Magenta);
+		ZL_Display3D::DrawFrustum(DebugCam, Light.GetVPMatrix(), ZL_Color::Yellow);
+		ZL_Display3D::DrawLine(DebugCam, Light.GetPosition(), Light.GetPosition() + Light.GetDirection(), ZL_Color::Yellow, 0.02f);
+		ZL_Display3D::FinishRendering();
+	}
+	else
+	#endif
 	for (size_t j = 0; j != NumLists; j++)
 		ZL_ImplFromOwner<ZL_RenderList_Impl>(*RenderLists[j])->RenderShaded(ZL_ImplFromOwner<ZL_Camera_Impl>(Camera), ZL_ImplFromOwner<ZL_Light_Impl>(Light));
 	if (TemporaryRendering) FinishRendering();
@@ -1559,6 +1651,17 @@ void ZL_Display3D::DrawPlane(const ZL_Camera& cam, const ZL_Vector3& pos, const 
 		DbgMesh = ZL_Mesh_Impl::Make(0, indices, COUNT_OF(indices), verts, COUNT_OF(verts), g_DebugColorMat);
 	}
 	ZL_Display3D_DrawDebugMesh(DbgMesh, ZL_Matrix::MakeRotateTranslateScale(normal, pos, ZL_Vector3(extents.x, extents.y, 1)), cam, color);
+}
+
+void ZL_Display3D::DrawFrustum(const ZL_Camera& cam, const ZL_Matrix& VPMatrix, const ZL_Color& color, scalar width)
+{
+	ZL_Matrix VPI = VPMatrix.GetInverted();
+	ZL_Vector3 Points[8] = { VPI.PerspectiveTransformPosition(ZL_Vector3(-1,-1,-1)), VPI.PerspectiveTransformPosition(ZL_Vector3(-1,-1, 1)),
+	                         VPI.PerspectiveTransformPosition(ZL_Vector3( 1,-1,-1)), VPI.PerspectiveTransformPosition(ZL_Vector3( 1,-1, 1)),
+	                         VPI.PerspectiveTransformPosition(ZL_Vector3( 1, 1,-1)), VPI.PerspectiveTransformPosition(ZL_Vector3( 1, 1, 1)),
+	                         VPI.PerspectiveTransformPosition(ZL_Vector3(-1, 1,-1)), VPI.PerspectiveTransformPosition(ZL_Vector3(-1, 1, 1)) };
+	int Edges[12*2] = { 0,1 , 2,3 , 4,5 , 6,7 , 0,2 , 0,6 , 1,7 , 1,3 , 2,4 , 3,5 , 4,6 , 5,7 };
+	for (int i = 0; i < 12*2; i+=2) DrawLine(cam, Points[Edges[i]], Points[Edges[i+1]], color, width);
 }
 
 #endif

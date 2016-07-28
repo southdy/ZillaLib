@@ -111,15 +111,15 @@ struct ZL_Material
 struct ZL_Mesh
 {
 	ZL_Mesh();
-	ZL_Mesh(const ZL_FileLink& ModelFile);
+	ZL_Mesh(const ZL_FileLink& ModelFile, const ZL_Material& Material = DefaultMaterial());
 	~ZL_Mesh();
 	ZL_Mesh(const ZL_Mesh &source);
 	ZL_Mesh &operator=(const ZL_Mesh &source);
 	operator bool () const { return (impl!=NULL); }
 	bool operator==(const ZL_Mesh &b) const { return (impl==b.impl); }
 	bool operator!=(const ZL_Mesh &b) const { return (impl!=b.impl); }
-	static ZL_Mesh FromPLY(const ZL_FileLink& PLYFile);
-	static ZL_Mesh FromOBJ(const ZL_FileLink& OBJFile);
+	static ZL_Mesh FromPLY(const ZL_FileLink& PLYFile, const ZL_Material& Material = DefaultMaterial());
+	static ZL_Mesh FromOBJ(const ZL_FileLink& OBJFile, const ZL_Material& Material = DefaultMaterial());
 	
 	ZL_Material GetMaterial(unsigned int PartNumber = 0) const;
 	ZL_Material GetMaterial(ZL_NameID PartName) const;
@@ -129,9 +129,9 @@ struct ZL_Mesh
 
 	void Draw(const ZL_Matrix& Matrix, const struct ZL_Camera* Camera, const struct ZL_Light* Light);
 
-	static ZL_Mesh BuildPlane(ZL_Vector Extents);
-	static ZL_Mesh BuildLandscape();
-	static ZL_Mesh BuildSphere(scalar Radius, int Segments, bool Inside = false);
+	static ZL_Mesh BuildPlane(ZL_Vector Extents, const ZL_Material& Material = DefaultMaterial());
+	static ZL_Mesh BuildLandscape(const ZL_Material& Material = DefaultMaterial());
+	static ZL_Mesh BuildSphere(scalar Radius, int Segments, bool Inside = false, const ZL_Material& Material = DefaultMaterial());
 
 	#if defined(ZILLALOG) && !defined(ZL_VIDEO_OPENGL_ES2)
 	//Debug drawing is only available on desktop debug builds
@@ -139,12 +139,13 @@ struct ZL_Mesh
 	#endif
 
 	protected: struct ZL_Mesh_Impl* impl;
+	inline static ZL_Material DefaultMaterial() { return ZL_Material(ZL_MaterialModes::MM_STATICCOLOR); }
 };
 
 struct ZL_MeshAnimated : public ZL_Mesh
 {
 	ZL_MeshAnimated();
-	ZL_MeshAnimated(const ZL_FileLink& AnimZipFile);
+	ZL_MeshAnimated(const ZL_FileLink& AnimZipFile, const ZL_Material& Material = DefaultMaterial());
 	~ZL_MeshAnimated();
 	ZL_MeshAnimated(const ZL_MeshAnimated &source);
 	ZL_MeshAnimated &operator=(const ZL_MeshAnimated &source);
@@ -192,7 +193,11 @@ struct ZL_Light
 
 	ZL_Light& SetPosition(const ZL_Vector3& pos);
 	ZL_Light& SetDirection(const ZL_Vector3& dir);
+	ZL_Light& SetSize(scalar size);
+	ZL_Light& SetRange(scalar range_far, scalar range_near = 1);
 	ZL_Light& SetColor(const ZL_Color& color);
+	ZL_Matrix& GetVPMatrix();
+	const ZL_Matrix& GetVPMatrix() const;
 	ZL_Vector3 GetPosition() const;
 	ZL_Vector3 GetDirection() const;
 	ZL_Color GetColor() const;
@@ -236,6 +241,7 @@ struct ZL_Display3D
 	//Simple shape rendering
 	static void DrawLine(const ZL_Camera& cam, const ZL_Vector3& a, const ZL_Vector3& b, const ZL_Color& color = ZL_Color::White, scalar width = 0.01f);
 	static void DrawPlane(const ZL_Camera& cam, const ZL_Vector3& pos, const ZL_Vector3& normal, const ZL_Vector& extents, const ZL_Color& color = ZL_Color::White);
+	static void DrawFrustum(const ZL_Camera& cam, const ZL_Matrix& VPMatrix, const ZL_Color& color = ZL_Color::White, scalar width = 0.03f);
 };
 
 //returns glsl function 'float snoise(vec2)'

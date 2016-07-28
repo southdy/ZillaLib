@@ -147,6 +147,19 @@ struct ZL_Vector3
 	static const ZL_Vector3 Zero, One, Forward, Right, Up;
 };
 
+struct ZL_Plane3
+{
+	ZL_Vector3 N; //unit normal
+	scalar D; //distance from the plane to the origin from a normal and a point
+	ZL_Plane3() : N(ZL_Vector3::Forward), D(0) {}
+	ZL_Plane3(const ZL_Vector3& N, scalar D = 0) : N(N), D(D) {}
+	inline ZL_Plane3& Invert() { N *= -1; D *= -1; return *this; }
+	inline ZL_Plane3 PlaneInvert() const { return ZL_Plane3(-N, -D); }
+	scalar GetDistanceToPoint(const ZL_Vector3& p) const { return (N|p) + D; }
+	ZL_Vector3 GetRayPoint(const ZL_Vector3& a, const ZL_Vector3& b) { ZL_Vector3 ba = b-a; scalar x = N|ba; return (x ? a + (ba * ((D - (N|a))/(N|ba))) : a); }
+	scalar GetRayT(const ZL_Vector3& a, const ZL_Vector3& b) { scalar x = N|(b-a); return (x ? (D - (N|a))/x : S_MAX); } // < 0 then ray intersection is before a, > 1 after b
+};
+
 struct ZL_Quat
 {
 	scalar x, y, z, w;
@@ -263,6 +276,7 @@ struct ZL_Matrix
 	inline ZL_Vector3 GetOrigin() const { return ZL_Vector3(m[12], m[13], m[14]); }
 	inline ZL_Vector3 TransformDirection(const ZL_Vector3& v) const { return ZL_Vector3(v.x*m[0]+v.y*m[4]+v.z*m[8], v.x*m[1]+v.y*m[5]+v.z*m[9], v.x*m[2]+v.y*m[6]+v.z*m[10]); }
 	inline ZL_Vector3 TransformPosition(const ZL_Vector3& v) const { return ZL_Vector3(v.x*m[0]+v.y*m[4]+v.z*m[8]+m[12], v.x*m[1]+v.y*m[5]+v.z*m[9]+m[13], v.x*m[2]+v.y*m[6]+v.z*m[10]+m[14]); }
+	inline ZL_Vector3 PerspectiveTransformPosition(const ZL_Vector3& v) const { scalar w = (v.x*m[3]+v.y*m[7]+v.z*m[11]+m[15]); w=w?s(1)/w:s(1); return ZL_Vector3((v.x*m[0]+v.y*m[4]+v.z*m[8]+m[12])*w, (v.x*m[1]+v.y*m[5]+v.z*m[9]+m[13])*w,( v.x*m[2]+v.y*m[6]+v.z*m[10]+m[14])*w); }
 
 	inline ZL_Matrix GetTransposed() const { return ZL_Matrix(m[0],m[4],m[8],m[12],m[1],m[5],m[9],m[13],m[2],m[6],m[10],m[14],m[3],m[7],m[11],m[15]); }
 	inline ZL_Matrix GetInverted() const
